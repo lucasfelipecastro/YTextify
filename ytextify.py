@@ -14,3 +14,15 @@ def download_audio(youtube_url, output_path=AUDIO_DIR):
     audio_stream = yt.streams.filter(only_audio=True).first()
     audio_file = audio_stream.download(output_path=output_path)
     return audio_file
+
+def transcribe_audio(audio_path, output_path=TRANSCRIPT_DIR):
+    model = whisper.load_model("base")
+    result = model.transcribe(audio_path)
+
+    video_title = os.path.splitext(os.path.basename(audio_path))[0]
+    transcript_file = os.path.join(output_path, f"{video_title}.txt")
+
+    with open(transcript_file, "w", encoding="utf-8") as f:
+        f.write(result["text"])
+
+    return transcript_file
