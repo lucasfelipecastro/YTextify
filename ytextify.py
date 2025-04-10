@@ -14,6 +14,23 @@ init(autoreset=True)
 def sanitize_filename(title):
     return re.sub(r'[^\w\-_. ]', '_', title).replace(" ", "_")
 
+def choose_model():
+    print("\nSelect Whisper model:")
+    print("1. base   → Fast, low accuracy")
+    print("2. small  → Balanced speed and accuracy")
+    print("3. medium → Slower, more accurate")
+    print("4. large  → Best accuracy, very slow & uses lots of RAM")
+
+    model_map = {
+        "1": "base",
+        "2": "small",
+        "3": "medium",
+        "4": "large"
+    }
+
+    choice = input("Enter model number [1-4]: ").strip()
+    return model_map.get(choice, "base")  # default to "base" if invalid
+
 def download_audio(youtube_url, output_dir="audio"):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -61,9 +78,9 @@ def spinner(message="Transcribing audio..."):
         idx += 1
         time.sleep(0.1)
 
-def transcribe_audio(audio_path, title):
+def transcribe_audio(audio_path, model_name, title, output_path=TRANSCRIPT_DIR):
     print("Transcribing... Please wait.")
-    model = whisper.load_model("base")
+    model = whisper.load_model(model_name)
     result = model.transcribe(audio_path)
     detected_language = result.get('language', 'unknown')
     if isinstance(detected_language, str):
@@ -81,9 +98,11 @@ def transcribe_audio(audio_path, title):
 
 
 def process_video(youtube_url):
+    model_name = choose_model()
     audio_path, title = download_audio(youtube_url)
-    transcript_path = transcribe_audio(audio_path, title)
-    print(f"Transcript saved at: {transcript_path}")
+    transcript_path = transcribe_audio(audio_path, model_name, title)
+    return transcript_path
+
 
 if __name__ == "__main__":
     url = input("Enter the YouTube video URL: ")
