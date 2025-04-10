@@ -2,6 +2,7 @@ import os
 from pytube import YouTube
 import whisper
 import ffmpeg
+import yt_dlp
 
 AUDIO_DIR = "audio"
 TRANSCRIPT_DIR = "transcripts"
@@ -9,11 +10,26 @@ TRANSCRIPT_DIR = "transcripts"
 os.makedirs(AUDIO_DIR, exist_ok=True)
 os.makedirs(TRANSCRIPT_DIR, exist_ok=True)
 
-def download_audio(youtube_url, output_path=AUDIO_DIR):
-    yt = YouTube(youtube_url)
-    audio_stream = yt.streams.filter(only_audio=True).first()
-    audio_file = audio_stream.download(output_path=output_path)
-    return audio_file
+def download_audio(youtube_url, output_dir="audio"):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': f'{output_dir}/audio.%(ext)s',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'quiet': True
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([youtube_url])
+
+    return os.path.join(output_dir, "audio.mp3")
+
 
 def transcribe_audio(audio_path, output_path=TRANSCRIPT_DIR):
     model = whisper.load_model("base")
