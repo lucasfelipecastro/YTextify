@@ -65,7 +65,12 @@ def transcribe_audio(audio_path, title):
     print("Transcribing... Please wait.")
     model = whisper.load_model("base")
     result = model.transcribe(audio_path)
-
+    detected_language = result.get('language', 'unknown')
+    if isinstance(detected_language, str):
+        print(f"[INFO] Language detected: {detected_language.upper()}")
+    else:
+        print("[INFO] Language detected: UNKNOWN")
+    
     transcript_file = os.path.join(TRANSCRIPT_DIR, f"{title}.txt")
 
     with open(transcript_file, "w", encoding="utf-8") as f:
