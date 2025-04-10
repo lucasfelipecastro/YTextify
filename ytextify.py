@@ -2,6 +2,7 @@ from pytube import YouTube
 import yt_dlp, ffmpeg, whisper, os, time, threading, re, warnings
 from tqdm import tqdm
 from colorama import init, Fore, Style
+from urllib.parse import urlparse, parse_qs
 
 warnings.filterwarnings("ignore", category=UserWarning, module='whisper')
 AUDIO_DIR = "audio"
@@ -14,6 +15,22 @@ init(autoreset=True)
 
 def sanitize_filename(title):
     return re.sub(r'[^\w\-_. ]', '_', title).replace(" ", "_")
+
+def extract_video_id(youtube_url):
+    parsed_url = urlparse(youtube_url)
+    if parsed_url.hostname in ['www.youtube.com', 'youtube.com']:
+        return parse_qs(parsed_url.query).get("v", [None])[0]
+    elif parsed_url.hostname == 'youtu.be':
+        return parsed_url.path.strip("/")
+    return None
+
+def check_existing_transcript(title: str, model_name: str) -> str | None:
+    filename = f"{title}_{model_name}.txt"
+    filepath = os.path.join("transcripts", filename)
+    if os.path.exists(filepath):
+        print(f"[INFO] Transcript already exists: '{filename}'")
+        return filepath
+    return None
 
 def choose_model():
     print("\nSelect Whisper model:")
@@ -33,6 +50,9 @@ def choose_model():
     return model_map.get(choice, "base")  # default to "base" if invalid
 
 def download_audio(youtube_url, output_dir="audio"):
+    video_id = extract_video_id(youtube_url)  # extract video ID
+    if not video_id:
+        raise ValueError("[ERROR] Could not extract video ID from URL.")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -64,10 +84,14 @@ def download_audio(youtube_url, output_dir="audio"):
     if not downloaded_mp3:
         raise FileNotFoundError("MP3 file not found after download.")
 
-    final_path = os.path.join(output_dir, f"{safe_title}.mp3")
-    os.rename(downloaded_mp3, final_path)
+    final_path = os.path.join("audio", f"{video_id}.mp3")
+    if os.path.exists(final_path):
+        print("[INFO] Audio file already exists. Skipping download.")
+        return final_path
 
-    return final_path, safe_title
+    os.rename(downloaded_mp3, final_path)
+    return final_path
+
 
 spinner_done = False
 
@@ -97,11 +121,28 @@ def transcribe_audio(audio_path, model_name, title, output_path=TRANSCRIPT_DIR):
     print("Transcription completed.")
     return transcript_file
 
-
 def process_video(youtube_url):
+    video_id = extract_video_id(youtube_url)
+    if not video_id:
+        print("[ERROR] Could not extract video ID from URL.")
+        return
+
     model_name = choose_model()
-    audio_path, title = download_audio(youtube_url)
-    transcript_path = transcribe_audio(audio_path, model_name, title)
+    transcript_filename = f"{video_id}_{model_name}.txt"
+    transcript_path = os.path.join("transcripts", transcript_filename)
+
+    if os.path.exists(transcript_path):
+        print(f"[INFO] Transcript already exists for this video ({model_name}).")
+        choice = input("Do you want to transcribe using a different model? (y/N): ").strip().lower()
+        if choice != "y":
+            print("[INFO] Skipping transcription.")
+            return transcript_path
+        model_name = choose_model()
+        transcript_filename = f"{video_id}_{model_name}.txt"
+        transcript_path = os.path.join("transcripts", transcript_filename)
+
+    audio_path = download_audio(youtube_url, video_id)
+    transcript_path = transcribe_audio(audio_path, model_name, video_id)
     return transcript_path
 
 
