@@ -31,3 +31,8 @@ def process_video(youtube_url):
     audio_path = download_audio(youtube_url)
     transcript_path = transcribe_audio(audio_path)
     return transcript_path
+
+if __name__ == "__main__":
+    url = input("Enter the YouTube video URL: ")
+    transcript = process_video(url)
+    print(f"Transcription saved at: {transcript}")
