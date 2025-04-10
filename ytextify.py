@@ -26,3 +26,8 @@ def transcribe_audio(audio_path, output_path=TRANSCRIPT_DIR):
         f.write(result["text"])
 
     return transcript_file
+
+def process_video(youtube_url):
+    audio_path = download_audio(youtube_url)
+    transcript_path = transcribe_audio(audio_path)
+    return transcript_path
