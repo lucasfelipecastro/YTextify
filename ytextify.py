@@ -1,8 +1,9 @@
 from pytube import YouTube
-import yt_dlp, ffmpeg, whisper, os, time, threading, re
+import yt_dlp, ffmpeg, whisper, os, time, threading, re, warnings
 from tqdm import tqdm
 from colorama import init, Fore, Style
 
+warnings.filterwarnings("ignore", category=UserWarning, module='whisper')
 AUDIO_DIR = "audio"
 TRANSCRIPT_DIR = "transcripts"
 
