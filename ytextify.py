@@ -1,8 +1,7 @@
-import os
 from pytube import YouTube
-import whisper
-import ffmpeg
-import yt_dlp
+import yt_dlp, ffmpeg, whisper, os, time, threading, re
+from tqdm import tqdm
+from colorama import init, Fore, Style
 
 AUDIO_DIR = "audio"
 TRANSCRIPT_DIR = "transcripts"
@@ -10,57 +9,77 @@ TRANSCRIPT_DIR = "transcripts"
 os.makedirs(AUDIO_DIR, exist_ok=True)
 os.makedirs(TRANSCRIPT_DIR, exist_ok=True)
 
+init(autoreset=True)
+
+def sanitize_filename(title):
+    return re.sub(r'[^\w\-_. ]', '_', title).replace(" ", "_")
+
 def download_audio(youtube_url, output_dir="audio"):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
     with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
         info = ydl.extract_info(youtube_url, download=False)
-        video_title = "audio"
-        if info:
-            video_title = info.get("title", "audio").replace(" ", "_").replace("/", "_")
-
-
-    audio_temp_path = os.path.join(output_dir, "audio_temp.webm")
-    audio_final_path = os.path.join(output_dir, f"{video_title}.mp3")
+        raw_title = info.get("title", "audio") if info else "audio"
+        safe_title = sanitize_filename(raw_title)
 
     ydl_opts = {
         'format': 'bestaudio/best',
-        'outtmpl': audio_temp_path,
+        'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
         'quiet': True
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([youtube_url])
 
-    ffmpeg.input(audio_temp_path).output(audio_final_path, format='mp3', acodec='libmp3lame').run(overwrite_output=True)
+    downloaded_mp3 = None
+    for file in os.listdir(output_dir):
+        if file.lower().endswith(".mp3"):
+            downloaded_mp3 = os.path.join(output_dir, file)
+            break
 
-    os.remove(audio_temp_path)
+    if not downloaded_mp3:
+        raise FileNotFoundError("MP3 file not found after download.")
 
-    return audio_final_path, video_title
+    final_path = os.path.join(output_dir, f"{safe_title}.mp3")
+    os.rename(downloaded_mp3, final_path)
 
+    return final_path, safe_title
 
-def transcribe_audio(audio_path, video_title, output_path=TRANSCRIPT_DIR):
+spinner_done = False
+
+def spinner(message="Transcribing audio..."):
+    symbols = ['|', '/', '-', '\\']
+    idx = 0
+    while not spinner_done:
+        print(f"\r{Fore.CYAN}{message} {symbols[idx % len(symbols)]}", end="")
+        idx += 1
+        time.sleep(0.1)
+
+def transcribe_audio(audio_path, title):
+    print("Transcribing... Please wait.")
     model = whisper.load_model("base")
     result = model.transcribe(audio_path)
 
-    safe_title = video_title.replace(" ", "_").replace("/", "_")
-    transcript_file = os.path.join(output_path, f"{safe_title}.txt")
+    transcript_file = os.path.join(TRANSCRIPT_DIR, f"{title}.txt")
 
     with open(transcript_file, "w", encoding="utf-8") as f:
         f.write(str(result["text"]))
 
+    print("Transcription completed.")
     return transcript_file
-
 
 
 def process_video(youtube_url):
     audio_path, title = download_audio(youtube_url)
     transcript_path = transcribe_audio(audio_path, title)
-    return transcript_path
-
+    print(f"Transcript saved at: {transcript_path}")
 
 if __name__ == "__main__":
     url = input("Enter the YouTube video URL: ")
-    transcript = process_video(url)
-    print(f"Transcription saved at: {transcript}")
+    process_video(url)
