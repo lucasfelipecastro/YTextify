@@ -14,7 +14,7 @@ os.makedirs(TRANSCRIPT_DIR, exist_ok=True)
 init(autoreset=True)
 
 def sanitize_filename(title):
-    return re.sub(r'[^\w\-_. ]', '_', title).replace(" ", "_")
+    return re.sub(r'[^\w\-_. ]', '_', title).replace(" ", "_").strip()
 
 def extract_video_id(youtube_url):
     parsed_url = urlparse(youtube_url)
@@ -50,7 +50,7 @@ def choose_model():
     return model_map.get(choice, "base")  # default to "base" if invalid
 
 def download_audio(youtube_url, output_dir="audio"):
-    video_id = extract_video_id(youtube_url)  # extract video ID
+    video_id = extract_video_id(youtube_url)
     if not video_id:
         raise ValueError("[ERROR] Could not extract video ID from URL.")
     if not os.path.exists(output_dir):
@@ -60,10 +60,17 @@ def download_audio(youtube_url, output_dir="audio"):
         info = ydl.extract_info(youtube_url, download=False)
         raw_title = info.get("title", "audio") if info else "audio"
         safe_title = sanitize_filename(raw_title)
+        print(f"[INFO] Downloading audio for video: {safe_title}")
 
+    final_path = os.path.join(output_dir, f"{safe_title}.mp3")
+    if os.path.exists(final_path):
+        print("[INFO] Audio file already exists. Skipping download.")
+        return final_path, safe_title
+
+    # downloading audio from youtube with temporary name
     ydl_opts = {
         'format': 'bestaudio/best',
-        'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
+        'outtmpl': os.path.join(output_dir, 'temp_audio.%(ext)s'),
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
@@ -75,23 +82,12 @@ def download_audio(youtube_url, output_dir="audio"):
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([youtube_url])
 
-    downloaded_mp3 = None
-    for file in os.listdir(output_dir):
-        if file.lower().endswith(".mp3"):
-            downloaded_mp3 = os.path.join(output_dir, file)
-            break
-
-    if not downloaded_mp3:
+    temp_path = os.path.join(output_dir, "temp_audio.mp3")
+    if not os.path.exists(temp_path):
         raise FileNotFoundError("MP3 file not found after download.")
 
-    final_path = os.path.join("audio", f"{video_id}.mp3")
-    if os.path.exists(final_path):
-        print("[INFO] Audio file already exists. Skipping download.")
-        return final_path
-
-    os.rename(downloaded_mp3, final_path)
-    return final_path
-
+    os.rename(temp_path, final_path)
+    return final_path, safe_title
 
 spinner_done = False
 
@@ -113,7 +109,8 @@ def transcribe_audio(audio_path, model_name, title, output_path=TRANSCRIPT_DIR):
     else:
         print("[INFO] Language detected: UNKNOWN")
     
-    transcript_file = os.path.join(TRANSCRIPT_DIR, f"{title}.txt")
+    filename = f"{title}_{model_name}.txt"
+    transcript_file = os.path.join(output_path, filename)
 
     with open(transcript_file, "w", encoding="utf-8") as f:
         f.write(str(result["text"]))
@@ -127,9 +124,11 @@ def process_video(youtube_url):
         print("[ERROR] Could not extract video ID from URL.")
         return
 
+    audio_path, safe_title = download_audio(youtube_url)
+
     model_name = choose_model()
-    transcript_filename = f"{video_id}_{model_name}.txt"
-    transcript_path = os.path.join("transcripts", transcript_filename)
+    transcript_filename = f"{safe_title}_{model_name}.txt"
+    transcript_path = os.path.join(TRANSCRIPT_DIR, transcript_filename)
 
     if os.path.exists(transcript_path):
         print(f"[INFO] Transcript already exists for this video ({model_name}).")
@@ -138,11 +137,10 @@ def process_video(youtube_url):
             print("[INFO] Skipping transcription.")
             return transcript_path
         model_name = choose_model()
-        transcript_filename = f"{video_id}_{model_name}.txt"
-        transcript_path = os.path.join("transcripts", transcript_filename)
+        transcript_filename = f"{safe_title}_{model_name}.txt"
+        transcript_path = os.path.join(TRANSCRIPT_DIR, transcript_filename)
 
-    audio_path = download_audio(youtube_url, video_id)
-    transcript_path = transcribe_audio(audio_path, model_name, video_id)
+    transcript_path = transcribe_audio(audio_path, model_name, safe_title)
     return transcript_path
 
 
