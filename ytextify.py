@@ -127,7 +127,7 @@ def process_video(youtube_url):
     audio_path, safe_title = download_audio(youtube_url)
 
     model_name = choose_model()
-    transcript_filename = f"{safe_title}_{model_name}.txt"
+    transcript_filename = f"({model_name})_{safe_title}.txt"
     transcript_path = os.path.join(TRANSCRIPT_DIR, transcript_filename)
 
     if os.path.exists(transcript_path):
