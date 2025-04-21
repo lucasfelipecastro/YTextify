@@ -11,15 +11,17 @@ os.makedirs(TRANSCRIPT_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 init(autoreset=True)
 
-# log configuration
-def log_config():
+# dynamic log configuration
+def dynamic_log_config(safe_title):
+    log_path = os.path.join(LOG_DIR, f"{safe_title}.log")
     logging.basicConfig(
-        filename=os.path.join(LOG_DIR, "ytextify.log"),
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        encoding="utf-8"
+        filename = log_path,
+        level = logging.INFO,
+        format = "%(asctime)s - %(levelname)s - %(message)s",
+        encoding = "utf-8",
+        force= True  # force logger reset when changing files
     )
-
+    logging.info("Logging started for video: %s", safe_title)
 
 def show_contact_info():
     print(f"{Fore.LIGHTYELLOW_EX}✨ Developed by Lucas Felipe")
@@ -80,6 +82,8 @@ def download_audio(youtube_url, output_dir="audio"):
             info = ydl.extract_info(youtube_url, download=False)
             raw_title = info.get("title", "audio") if info else "audio"
             safe_title = sanitize_filename(raw_title)
+            dynamic_log_config(safe_title)
+
             skip_line()
             print(f"{Fore.LIGHTGREEN_EX}[INFO] Downloading audio for video: {safe_title}")
 
@@ -196,8 +200,6 @@ def process_video(youtube_url):
 
 
 if __name__ == "__main__":
-    log_config()
-    skip_line()
     try:
         print(f"{Fore.LIGHTYELLOW_EX}Welcome to YTextify!")
         print(f"{Fore.LIGHTYELLOW_EX}This tool helps you transcribe YouTube videos using Whisper.")
@@ -211,7 +213,7 @@ if __name__ == "__main__":
 
         print(f"{Fore.LIGHTYELLOW_EX}Thank you for using YTextify!")
         skip_line()
-        
+
         print(f"{Fore.LIGHTYELLOW_EX}➤ If you have any questions or feedback, feel free to reach out.")
         show_contact_info()
 
