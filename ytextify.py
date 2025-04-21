@@ -1,17 +1,25 @@
-from pytube import YouTube
-import yt_dlp, ffmpeg, whisper, os, time, re, warnings
-from tqdm import tqdm
+import yt_dlp, whisper, os, re, warnings, logging
 from colorama import init, Fore
 from urllib.parse import urlparse, parse_qs
 
 warnings.filterwarnings("ignore", category=UserWarning, module='whisper')
 AUDIO_DIR = "audio"
 TRANSCRIPT_DIR = "transcripts"
-
+LOG_DIR = "logs"
 os.makedirs(AUDIO_DIR, exist_ok=True)
 os.makedirs(TRANSCRIPT_DIR, exist_ok=True)
-
+os.makedirs(LOG_DIR, exist_ok=True)
 init(autoreset=True)
+
+# log configuration
+def log_config():
+    logging.basicConfig(
+        filename=os.path.join(LOG_DIR, "ytextify.log"),
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        encoding="utf-8"
+    )
+
 
 def show_contact_info():
     print(f"{Fore.LIGHTYELLOW_EX}✨ Developed by Lucas Felipe")
@@ -61,6 +69,7 @@ def skip_line():
 
 def download_audio(youtube_url, output_dir="audio"):
     try:
+        logging.info(f"Attempting to download audio: {youtube_url}")
         video_id = extract_video_id(youtube_url)
         if not video_id:
             raise ValueError(f"{Fore.RED}[ERROR] Could not extract video ID from URL.")
@@ -76,6 +85,7 @@ def download_audio(youtube_url, output_dir="audio"):
 
         final_path = os.path.join(output_dir, f"{safe_title}.mp3")
         if os.path.exists(final_path):
+            logging.warning(f"Audio already exists for '{safe_title}'. Skipping download.")
             print(f"{Fore.YELLOW}[INFO] Audio file already exists for this video in {final_path}. Skipping download.")
             skip_line()
             print(f"{Fore.CYAN}Choose another template to transcribe the audio already downloaded to your machine:")
@@ -105,25 +115,32 @@ def download_audio(youtube_url, output_dir="audio"):
     
     except Exception as e:
         skip_line()
+        logging.exception("Exception occurred while downloading audio")
         print(f"{Fore.RED}[ERROR] Failed to download audio: {e}")
         return None, None
     
 def transcribe_audio(audio_path, model_name, title, output_path=TRANSCRIPT_DIR):
     try:
+        logging.info(f"Starting transcription - Title: {title}, Model: {model_name}")
         skip_line()
         print(f"{Fore.LIGHTGREEN_EX}[INFO] Transcribing audio: {title} - model: ({model_name}). Please wait...")
         model = whisper.load_model(model_name)
         result = model.transcribe(audio_path)
         detected_language = result.get('language', 'unknown')
+        
         if isinstance(detected_language, str):
+            logging.info(f"Detected language: {detected_language.upper()} for title: {title}")
             skip_line()
             print(f"{Fore.LIGHTGREEN_EX}[INFO] Language detected: {detected_language.upper()}")
+        
         else:
             skip_line()
             print("[INFO] Language detected: UNKNOWN")
         
         filename = f"{title}_{model_name}.txt"
+        
         transcript_file = os.path.join(output_path, filename)
+        logging.info(f"Transcription saved: {transcript_file}")
 
         with open(transcript_file, "w", encoding="utf-8") as f:
             f.write(str(result["text"]))
@@ -132,14 +149,17 @@ def transcribe_audio(audio_path, model_name, title, output_path=TRANSCRIPT_DIR):
         return transcript_file
 
     except Exception as e:
+        logging.exception("Transcription failed")
         print(f"{Fore.RED}[ERROR] Transcription failed: {e}")
         return None
     
 def process_video(youtube_url):
     try:
+        logging.info(f"Starting process for URL: {youtube_url}")
         video_id = extract_video_id(youtube_url)
         if not video_id:
             skip_line()
+            logging.error(f"Failed to extract video ID from URL: {youtube_url}")
             print(f"{Fore.RED}[ERROR] Could not extract video ID from URL.")
             return
 
@@ -154,6 +174,7 @@ def process_video(youtube_url):
             print(f"{Fore.CYAN}[INFO] Transcript already exists for this video ({model_name}).")
             choice = input("Do you want to transcribe using a different model? (y/N): ").strip().lower()
             if choice != "y":
+                logging.info(f"User skipped transcription for model '{model_name}' and video '{safe_title}'.")
                 skip_line()
                 print(f"{Fore.LIGHTGREEN_EX}[INFO] Skipping transcription.")
                 return transcript_path
@@ -161,28 +182,36 @@ def process_video(youtube_url):
             model_name = choose_model()
             transcript_filename = f"({model_name})_{safe_title}.txt"
             transcript_path = os.path.join(TRANSCRIPT_DIR, transcript_filename)
+            
 
         transcript_path = transcribe_audio(audio_path, model_name, safe_title)
+        logging.info(f"Transcription completed: {transcript_path}")
         return transcript_path
     
     except Exception as e:
         skip_line()
+        logging.exception("Failed to process video")
         print(f"{Fore.RED}[ERROR] Failed to process video: {e}")
         return None
 
 
 if __name__ == "__main__":
+    log_config()
+    skip_line()
     try:
         print(f"{Fore.LIGHTYELLOW_EX}Welcome to YTextify!")
         print(f"{Fore.LIGHTYELLOW_EX}This tool helps you transcribe YouTube videos using Whisper.")
         skip_line()
+
         print(f"{Fore.LIGHTYELLOW_EX}Please ensure you have the required dependencies installed.")
         url = input(f"{Fore.CYAN}Enter the YouTube video URL: ")
         process_video(url)
         skip_line()
         skip_line()
+
         print(f"{Fore.LIGHTYELLOW_EX}Thank you for using YTextify!")
         skip_line()
+        
         print(f"{Fore.LIGHTYELLOW_EX}➤ If you have any questions or feedback, feel free to reach out.")
         show_contact_info()
 
