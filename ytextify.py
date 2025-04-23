@@ -17,7 +17,7 @@ def dynamic_log_config(safe_title):
     logging.basicConfig(
         filename = log_path,
         level = logging.INFO,
-        format = "%(asctime)s - %(levelname)s - %(message)s",
+        format = "%(asctime)s - %(levelname)s - %(message)s\n",
         encoding = "utf-8",
         force= True  # force logger reset when changing files
     )
