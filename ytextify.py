@@ -1,4 +1,4 @@
-import yt_dlp, whisper, os, re, warnings, logging
+import yt_dlp, whisper, os, re, warnings, logging, subprocess, sys
 from colorama import init, Fore
 from urllib.parse import urlparse, parse_qs
 
@@ -10,6 +10,35 @@ os.makedirs(AUDIO_DIR, exist_ok=True)
 os.makedirs(TRANSCRIPT_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 init(autoreset=True)
+
+def check_dependencies():
+    print(f'{Fore.CYAN}[CHECK] Verifying required dependencies...\n')
+
+    try:
+        subprocess.run(['ffmpeg', '-version'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print(f'{Fore.GREEN}[OK] FFmpeg found in PATH.')
+    except FileNotFoundError:
+        print(f'{Fore.RED}[ERROR] FFmpeg not found. Please install FFmpeg and add it to your system PATH.')
+        sys.exit(1)
+
+    try:
+        _ = whisper.load_model('base')
+        print(f"{Fore.GREEN}[OK] Whisper model loaded successfully.")
+    except Exception as e:
+        print(f"{Fore.RED}[ERROR] Failed to load Whisper model: {e}")
+        sys.exit(1)
+
+    try:
+        with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
+            ydl.extract_info('https://www.youtube.com/watch?v=YE7VzlLtp-4', download=False)
+        print(f"{Fore.GREEN}[OK] yt_dlp is working correctly.")
+    except Exception as e:
+        print(f"{Fore.RED}[ERROR] yt_dlp failed to extract video info: {e}")
+        logging.exception('yt_dlp test video check failed')
+        sys.exit(1)
+
+    print(f"\n{Fore.LIGHTGREEN_EX}[INFO] All dependencies are ready!\n")
+
 
 # dynamic log configuration
 def dynamic_log_config(safe_title):
@@ -163,8 +192,7 @@ def process_video(youtube_url):
         video_id = extract_video_id(youtube_url)
         if not video_id:
             skip_line()
-            logging.error(f'Failed to extract video ID from URL: {youtube_url}')
-            print(f'{Fore.RED}[ERROR] Could not extract video ID from URL.')
+            logging.error(f'{Fore.RED}Failed to extract video ID from URL: {youtube_url}')
             return
 
         audio_path, safe_title = download_audio(youtube_url)
@@ -202,6 +230,7 @@ def process_video(youtube_url):
 if __name__ == '__main__':
     try:
         print(f'{Fore.LIGHTYELLOW_EX}Welcome to YTextify!')
+        check_dependencies()
         print(f'{Fore.LIGHTYELLOW_EX}This tool helps you transcribe YouTube videos using Whisper.')
         skip_line()
 
