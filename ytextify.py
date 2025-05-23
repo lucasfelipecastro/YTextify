@@ -1,6 +1,7 @@
 import yt_dlp, whisper, os, re, warnings, logging, subprocess, sys
 from colorama import init, Fore
 from urllib.parse import urlparse, parse_qs
+from tqdm import tqdm
 
 warnings.filterwarnings('ignore', category=UserWarning, module='whisper')
 AUDIO_DIR = 'audio'
@@ -166,21 +167,24 @@ def transcribe_audio(audio_path, model_name, title, output_path=TRANSCRIPT_DIR):
         logging.info(f'Starting transcription - Title: {title}, Model: {model_name}')
         skip_line()
         print(f'{Fore.LIGHTGREEN_EX}[INFO] Transcribing audio: {title} - model: ({model_name}). Please wait...')
+
         model = whisper.load_model(model_name)
         result = model.transcribe(audio_path)
+
+        skip_line()
+        print(f'{Fore.YELLOW}⚠️ Finalizing transcription. This may take a little longer depending on the video length...')
+
         detected_language = result.get('language', 'unknown')
-        
+
         if isinstance(detected_language, str):
             logging.info(f'Detected language: {detected_language.upper()} for title: {title}')
             skip_line()
             print(f'{Fore.LIGHTGREEN_EX}[INFO] Language detected: {detected_language.upper()}')
-        
         else:
             skip_line()
             print('[INFO] Language detected: UNKNOWN')
-        
+
         filename = f'{title}_{model_name}.txt'
-        
         transcript_file = os.path.join(output_path, filename)
         logging.info(f'Transcription saved: {transcript_file}')
 
@@ -194,6 +198,7 @@ def transcribe_audio(audio_path, model_name, title, output_path=TRANSCRIPT_DIR):
         logging.exception('Transcription failed')
         print(f'{Fore.RED}[ERROR] Transcription failed: {e}')
         return None
+
     
 def process_video(youtube_url):
     try:
