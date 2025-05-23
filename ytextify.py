@@ -23,21 +23,21 @@ def check_dependencies():
 
     try:
         _ = whisper.load_model('base')
-        print(f"{Fore.GREEN}[OK] Whisper model loaded successfully.")
+        print(f'{Fore.GREEN}[OK] Whisper model loaded successfully.')
     except Exception as e:
-        print(f"{Fore.RED}[ERROR] Failed to load Whisper model: {e}")
+        print(f'{Fore.RED}[ERROR] Failed to load Whisper model: {e}')
         sys.exit(1)
 
     try:
         with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
             ydl.extract_info('https://www.youtube.com/watch?v=YE7VzlLtp-4', download=False)
-        print(f"{Fore.GREEN}[OK] yt_dlp is working correctly.")
+        print(f'{Fore.GREEN}[OK] yt_dlp is working correctly.')
     except Exception as e:
-        print(f"{Fore.RED}[ERROR] yt_dlp failed to extract video info: {e}")
+        print(f'{Fore.RED}[ERROR] yt_dlp failed to extract video info: {e}')
         logging.exception('yt_dlp test video check failed')
         sys.exit(1)
 
-    print(f"\n{Fore.LIGHTGREEN_EX}[INFO] All dependencies are ready!\n")
+    print(f'\n{Fore.LIGHTGREEN_EX}[INFO] All dependencies are ready!\n')
 
 
 # dynamic log configuration
@@ -68,6 +68,15 @@ def extract_video_id(youtube_url):
     elif parsed_url.hostname == 'youtu.be':
         return parsed_url.path.strip('/')
     return None
+
+def is_valid_youtube_url(url: str) -> bool:
+    parsed = urlparse(url)
+    if parsed.scheme not in ('http', 'https'):
+        return False
+    if parsed.hostname not in ('www.youtube.com', 'youtube.com', 'youtu.be'):
+        return False
+    video_id = extract_video_id(url)
+    return video_id is not None
 
 def check_existing_transcript(title: str, model_name: str) -> str | None:
     filename = f'{title}_{model_name}.txt'
@@ -235,12 +244,22 @@ if __name__ == '__main__':
         skip_line()
 
         print(f'{Fore.LIGHTYELLOW_EX}Please ensure you have the required dependencies installed.')
-        url = input(f'{Fore.CYAN}Enter the YouTube video URL: ')
-        process_video(url)
+        
+        while True:
+            url = input(f'{Fore.CYAN}Enter the Youtube video URL: ').strip()
+            if is_valid_youtube_url(url):
+                break
+            print(f'{Fore.RED}[ERROR] Invalid Youtube URL. Please enter a valid link. \n')
+
+        result_path = process_video(url)
         skip_line()
         skip_line()
 
         print(f'{Fore.LIGHTYELLOW_EX}Thank you for using YTextify!')
+
+        if result_path:
+            print(f'\n{Fore.CYAN}[INFO] Open the transcript file at: {result_path}')
+        
         skip_line()
 
         print(f'{Fore.LIGHTYELLOW_EX}➤ If you have any questions or feedback, feel free to reach out.')
