@@ -15,6 +15,8 @@ networkx==3.4.2
 numba==0.61.2
 numpy==2.2.4
 openai-whisper @ git+https://github.com/openai/whisper.git@517a43ecd132a2089d85f4ebc044728a71d49f6e
+packaging==25.0
+pipdeptree==2.26.1
 pytube==15.0.0
 regex==2024.11.6
 requests==2.32.3
@@ -25,5 +27,4 @@ torch==2.6.0
 tqdm==4.67.1
 typing_extensions==4.13.1
 urllib3==2.3.0
-git+https://github.com/yt-dlp/yt-dlp.git
-
+yt-dlp @ git+https://github.com/yt-dlp/yt-dlp.git@415b4c9f955b1a0391204bd24a7132590e7b3bdb
